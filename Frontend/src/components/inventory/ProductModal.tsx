@@ -16,7 +16,9 @@ export function ProductModal({ product, onClose, onSave }: ProductModalProps) {
   const [price, setPrice] = useState(product ? String(product.price) : '');
   const [stock, setStock] = useState(product ? String(product.stock ?? 0) : '1');
   const [materials, setMaterials] = useState(product?.materials ?? '');
-  const [status, setStatus] = useState<ProductStatus | ''>(product?.status ?? '');
+  const [status, setStatus] = useState<ProductStatus | ''>(
+    product?.status === 'DISCONTINUED' ? 'DISCONTINUED' : '',
+  );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 

@@ -20,7 +20,8 @@ export const ordersApi = {
       body: JSON.stringify({
         orderId: data.orderId,
         eventType: data.eventType,
-        deliveryDate: data.deliveryDate,
+        // Midday avoids the stored instant shifting to the previous day in UTC-6.
+        deliveryDate: `${data.deliveryDate}T12:00:00`,
         customer: { id: data.customerId },
         products: data.productIds.map((productId) => ({ productId })),
       }),
