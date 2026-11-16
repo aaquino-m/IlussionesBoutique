@@ -1,5 +1,6 @@
 package com.keycode.ilussioness_backend.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -34,6 +35,11 @@ public class Order {
     @Size(max = 20, message = "status must be at most 20 characters")
     @Column(name = "status", length = 20)
     private String status;
+
+    /** True when this order took units from inventory (orders created before stock tracking did not). */
+    @JsonIgnore
+    @Column(name = "stock_reserved", nullable = false)
+    private boolean stockReserved;
 
     public Order() {
     }
@@ -97,6 +103,14 @@ public class Order {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public boolean isStockReserved() {
+        return stockReserved;
+    }
+
+    public void setStockReserved(boolean stockReserved) {
+        this.stockReserved = stockReserved;
     }
 
     public List<Product> getProducts() {

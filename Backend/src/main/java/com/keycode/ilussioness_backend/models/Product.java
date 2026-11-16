@@ -165,9 +165,15 @@ public class Product {
             throw new IllegalStateException("insufficient_stock");
         }
         stock = next;
-        if (next == 0 && (status == null || status == ProductStatus.AVAILABLE)) {
+        syncStatusWithStock();
+    }
+
+    /** Marks an available product without units as out of stock, and a restocked one as available. */
+    public void syncStatusWithStock() {
+        int current = stock == null ? 0 : stock;
+        if (current == 0 && (status == null || status == ProductStatus.AVAILABLE)) {
             status = ProductStatus.OUT_OF_STOCK;
-        } else if (next > 0 && status == ProductStatus.OUT_OF_STOCK) {
+        } else if (current > 0 && status == ProductStatus.OUT_OF_STOCK) {
             status = ProductStatus.AVAILABLE;
         }
     }

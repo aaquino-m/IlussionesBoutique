@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,6 +62,9 @@ class InventoryOrdersRemindersApiTest {
         mockMvc.perform(auth(json(patch("/api/product/" + id + "/stock"), "{\"delta\":-1}")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.reason").value("insufficient_stock"));
+        mockMvc.perform(auth(json(put("/api/product/" + id), "{\"stock\":3}")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("AVAILABLE"));
         mockMvc.perform(auth(get("/api/product")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].name").exists());
@@ -87,6 +91,13 @@ class InventoryOrdersRemindersApiTest {
         mockMvc.perform(auth(json(post("/api/order"), order.formatted("PED-2", customerId, productId))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.reason").value("insufficient_stock"));
+
+        mockMvc.perform(auth(json(post("/api/order"), order.formatted("PED-1", customerId, productId))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.reason").value("order_already_exists"));
+        mockMvc.perform(auth(delete("/api/product/" + productId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.reason").value("product_in_use"));
 
         mockMvc.perform(auth(delete("/api/order/PED-1"))).andExpect(status().is2xxSuccessful());
         mockMvc.perform(auth(get("/api/product/" + productId))).andExpect(jsonPath("$.stock").value(1));

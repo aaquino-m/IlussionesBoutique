@@ -69,6 +69,10 @@ public class OrderService {
     public Order createOrder(Order order) {
         try {
             requireValidOrder(order);
+            if (orderRepository.existsById(order.getOrderId())) {
+                throw new BusinessValidationException("order_already_exists");
+            }
+            order.setStockReserved(false);
             if (order.getStatus() == null || order.getStatus().isBlank()) {
                 order.setStatus("PENDING");
             }
@@ -76,6 +80,7 @@ public class OrderService {
             order.setCustomer(resolveCustomer(order.getCustomer()));
             order.setProducts(resolveProducts(order.getProducts()));
             reserveStock(order.getProducts());
+            order.setStockReserved(true);
         } catch (BusinessValidationException ex) {
             auditFailure(
                     AuditEventType.ORDER_CREATE_FAILED,
@@ -142,11 +147,14 @@ public class OrderService {
                     order.setCustomer(resolveCustomer(updates.getCustomer()));
                 }
                 if (updates.getProducts() != null) {
-                    requireValidOrder(updates);
-                    releaseStock(order.getProducts());
+                    requireValidProducts(updates.getProducts());
+                    if (order.isStockReserved()) {
+                        releaseStock(order.getProducts());
+                    }
                     List<Product> products = resolveProducts(updates.getProducts());
                     reserveStock(products);
                     order.setProducts(products);
+                    order.setStockReserved(true);
                 }
             }
         } catch (BusinessValidationException ex) {
@@ -188,7 +196,7 @@ public class OrderService {
         }
 
         try {
-            if (!"DELIVERED".equals(existing.get().getStatus())) {
+            if (existing.get().isStockReserved() && !"DELIVERED".equals(existing.get().getStatus())) {
                 releaseStock(existing.get().getProducts());
             }
             orderRepository.deleteById(id);
@@ -242,7 +250,7 @@ public class OrderService {
             if (product.getProductId() == null) {
                 resolved.add(product);
             } else {
-                resolved.add(productRepository.findById(product.getProductId())
+                resolved.add(productRepository.findByIdForUpdate(product.getProductId())
                         .orElseThrow(() -> new BusinessValidationException("product_not_found")));
             }
         }
@@ -288,8 +296,12 @@ public class OrderService {
         if (order.getEventType() == null || order.getEventType().isBlank()) {
             throw new BusinessValidationException("event_type_required");
         }
-        if (order.getProducts() != null) {
-            for (Product product : order.getProducts()) {
+        requireValidProducts(order.getProducts());
+    }
+
+    private static void requireValidProducts(List<Product> products) {
+        if (products != null) {
+            for (Product product : products) {
                 if (product == null) {
                     throw new BusinessValidationException("invalid_product");
                 }

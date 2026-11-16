@@ -6,6 +6,7 @@ import com.keycode.ilussioness_backend.audit.domain.AuditOutcome;
 import com.keycode.ilussioness_backend.audit.service.AuditService;
 import com.keycode.ilussioness_backend.models.Product;
 import com.keycode.ilussioness_backend.models.ProductStatus;
+import com.keycode.ilussioness_backend.repositories.OrderRepository;
 import com.keycode.ilussioness_backend.repositories.ProductRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +30,16 @@ public class ProductService {
     private static final int MAX_STOCK = 1_000_000;
 
     private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
     private final AuditService auditService;
 
-    public ProductService(ProductRepository productRepository, AuditService auditService) {
+    public ProductService(
+            ProductRepository productRepository,
+            OrderRepository orderRepository,
+            AuditService auditService
+    ) {
         this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
         this.auditService = auditService;
     }
 
@@ -97,6 +104,8 @@ public class ProductService {
             }
             if (updates.getStatus() != null) {
                 product.setStatus(updates.getStatus());
+            } else if (updates.getStock() != null) {
+                product.syncStatusWithStock();
             }
         }
         validate(product, id);
@@ -113,7 +122,7 @@ public class ProductService {
      */
     @Transactional
     public Optional<Product> adjustStock(UUID id, int delta) {
-        Optional<Product> existing = productRepository.findById(id);
+        Optional<Product> existing = productRepository.findByIdForUpdate(id);
         if (existing.isEmpty()) {
             return Optional.empty();
         }
@@ -134,6 +143,10 @@ public class ProductService {
     public boolean deleteProduct(UUID id) {
         if (!productRepository.existsById(id)) {
             return false;
+        }
+        // order_products cascades on product delete; keep order history intact instead.
+        if (orderRepository.existsByProducts_ProductId(id)) {
+            reject(id, "product_in_use");
         }
         productRepository.deleteById(id);
         productRepository.flush();

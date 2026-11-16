@@ -18,6 +18,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     List<Order> findByCustomerId(UUID customerId);
 
+    boolean existsByProducts_ProductId(UUID productId);
+
     @Modifying
     @Query("update Order o set o.customer = null where o.customer.id = :customerId")
     int detachCustomer(@Param("customerId") UUID customerId);

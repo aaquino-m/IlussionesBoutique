@@ -171,6 +171,7 @@ CREATE TABLE public.orders (
     delivery_date timestamp without time zone,
     customer_id   uuid REFERENCES public.customer(id) ON DELETE SET NULL,
     status        character varying(20) DEFAULT 'PENDING' NOT NULL,
+    stock_reserved boolean DEFAULT false NOT NULL,
     CONSTRAINT orders_status_check CHECK (status IN ('PENDING', 'IN_PROGRESS', 'READY', 'DELIVERED', 'CANCELLED'))
 );
 

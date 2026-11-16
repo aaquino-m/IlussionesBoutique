@@ -11,7 +11,9 @@ ALTER TABLE public.product ALTER COLUMN status SET DEFAULT 'AVAILABLE';
 -- Orders created from a customer (legacy orders table).
 ALTER TABLE public.orders
     ADD COLUMN IF NOT EXISTS customer_id uuid REFERENCES public.customer(id) ON DELETE SET NULL,
-    ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'PENDING';
+    ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'PENDING',
+    -- Existing orders never took units from inventory, so deleting them must not return stock.
+    ADD COLUMN IF NOT EXISTS stock_reserved boolean NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS orders_customer_id_idx ON public.orders (customer_id);
 DO $$
 BEGIN
