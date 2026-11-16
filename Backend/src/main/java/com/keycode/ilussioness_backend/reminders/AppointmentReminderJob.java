@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -59,7 +58,6 @@ public class AppointmentReminderJob {
     }
 
     /** @return number of appointments included in the reminder. */
-    @Transactional
     public int sendDueReminders() {
         LocalDateTime now = LocalDateTime.now(zone);
         LocalDateTime limit = now.plusHours(leadHours);
@@ -89,9 +87,8 @@ public class AppointmentReminderJob {
                 .collect(Collectors.joining("\n"));
         String body = "Citas en las próximas " + leadHours + " horas:\n\n" + lines + "\n\n— Ilussiones Boutique";
         if (emailService.send(notifyEmail, "Recordatorio: " + due.size() + " cita(s) próximas", body)) {
-            OffsetDateTime sentAt = OffsetDateTime.now(zone);
-            due.forEach(a -> a.setReminderSentAt(sentAt));
-            appointmentRepository.saveAll(due);
+            appointmentRepository.markReminderSent(
+                    due.stream().map(Appointment::getId).toList(), OffsetDateTime.now(zone));
         }
         return due.size();
     }
