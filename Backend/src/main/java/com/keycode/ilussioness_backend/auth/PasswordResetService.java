@@ -55,7 +55,6 @@ public class PasswordResetService {
     private static final int MIN_PASSWORD_LENGTH = 10;
     private static final int MAX_REQUESTS_PER_WINDOW = 3;
     private static final Duration RATE_WINDOW = Duration.ofMinutes(15);
-    private static final int MAX_TRACKED_EMAILS = 10_000;
 
     private final AccountService accountService;
     private final EmailService emailService;
@@ -93,12 +92,9 @@ public class PasswordResetService {
      */
     @Transactional
     public void requestReset(String email) {
-        String normalized = AccountService.normalize(email);
-        if (!allowRequest(normalized)) {
-            return;
-        }
-        Optional<AccountService.Account> account = accountService.findAccount(normalized);
-        account.ifPresent(this::sendResetLink);
+        Optional<AccountService.Account> account = accountService.findAccount(AccountService.normalize(email));
+        // Only real accounts are rate-limited, so unknown addresses cannot fill the map.
+        account.filter(found -> allowRequest(found.email())).ifPresent(this::sendResetLink);
         auditService.recordBusinessSuccess(
                 AuditEventType.AUTH_PASSWORD_RESET_REQUESTED, AuditEntityType.AUTH, null, Map.of());
     }
@@ -189,12 +185,6 @@ public class PasswordResetService {
 
     private boolean allowRequest(String email) {
         Instant now = Instant.now();
-        if (recentRequests.size() >= MAX_TRACKED_EMAILS && !recentRequests.containsKey(email)) {
-            pruneExpired(now);
-            if (recentRequests.size() >= MAX_TRACKED_EMAILS) {
-                return false;
-            }
-        }
         Deque<Instant> timestamps = recentRequests.computeIfAbsent(email, ignored -> new ArrayDeque<>());
         synchronized (timestamps) {
             while (!timestamps.isEmpty() && timestamps.peekFirst().isBefore(now.minus(RATE_WINDOW))) {
@@ -206,16 +196,6 @@ public class PasswordResetService {
             timestamps.addLast(now);
             return true;
         }
-    }
-
-    private void pruneExpired(Instant now) {
-        Instant cutoff = now.minus(RATE_WINDOW);
-        recentRequests.entrySet().removeIf(entry -> {
-            synchronized (entry.getValue()) {
-                Instant last = entry.getValue().peekLast();
-                return last == null || last.isBefore(cutoff);
-            }
-        });
     }
 
     private static String fingerprint(String passwordHash) {
