@@ -36,7 +36,7 @@ public class AuditEventValidator {
     private static final Pattern CUSTOMER_ID = Pattern.compile("^[A-Za-z0-9._:-]{1,64}$");
 
     private static final Set<String> SECTIONS = Set.of(
-            "INICIO", "CLIENTES", "PEDIDOS", "INVENTARIO"
+            "INICIO", "CLIENTES", "PEDIDOS", "INVENTARIO", "CALENDARIO"
     );
     private static final Set<String> OPERATIONS = Set.of(
             "LOAD_APPOINTMENTS",

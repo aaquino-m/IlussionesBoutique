@@ -15,16 +15,46 @@ export interface Appointment {
   appointmentDate: string; // "2026-10-29"
   appointmentTime: string; // "10:00:00"
   status: AppointmentStatus;
+  googleEventId?: string | null;
+  microsoftEventId?: string | null;
 }
+
+export type ProductType = 'DRESS' | 'CARD' | 'ALBUM' | 'CUP' | 'PLUSH';
+export type ProductStatus = 'AVAILABLE' | 'OUT_OF_STOCK' | 'DISCONTINUED';
 
 export interface Product {
   productId: string;
+  name?: string;
+  type?: ProductType;
   price: number;
-  photo?: string;
+  photo?: string | null;
+  materials?: string | null;
+  status?: ProductStatus;
+  stock?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductInput {
+  name: string;
+  type: ProductType;
+  price: number;
+  stock: number;
   materials?: string;
-  status?: string;
-  type?: string;
-  [field: string]: unknown;
+  photo?: string;
+  status?: ProductStatus;
+}
+
+export type OrderStatus = 'PENDING' | 'IN_PROGRESS' | 'READY' | 'DELIVERED' | 'CANCELLED';
+
+export type CalendarProvider = 'GOOGLE' | 'MICROSOFT';
+
+export interface CalendarProviderStatus {
+  provider: CalendarProvider;
+  configured: boolean;
+  connected: boolean;
+  accountEmail: string | null;
+  connectedAt: string | null;
 }
 
 export interface Order {
@@ -32,8 +62,8 @@ export interface Order {
   eventType: string;
   deliveryDate: string;
   products: Product[];
-  customer?: Customer; // llegará cuando el backend lo agregue
-  status?: string;     // idem
+  customer?: Customer | null;
+  status?: OrderStatus | null;
 }
 
 export interface NewAppointmentData {

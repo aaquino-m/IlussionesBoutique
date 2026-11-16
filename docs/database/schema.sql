@@ -110,6 +110,8 @@ CREATE TABLE public.appointment (
     appointment_time time without time zone NOT NULL,
     status           public.appointment_status DEFAULT 'SCHEDULED'::public.appointment_status NOT NULL,
     google_event_id  character varying(255),
+    microsoft_event_id text,
+    reminder_sent_at timestamp with time zone,
     created_at       timestamp with time zone DEFAULT now() NOT NULL,
     updated_at       timestamp with time zone DEFAULT now() NOT NULL,
     reason           text
@@ -166,7 +168,19 @@ CREATE TABLE public.payment (
 CREATE TABLE public.orders (
     order_id      text NOT NULL,
     event_type    text,
-    delivery_date timestamp without time zone
+    delivery_date timestamp without time zone,
+    customer_id   uuid REFERENCES public.customer(id) ON DELETE SET NULL,
+    status        character varying(20) DEFAULT 'PENDING' NOT NULL,
+    CONSTRAINT orders_status_check CHECK (status IN ('PENDING', 'IN_PROGRESS', 'READY', 'DELIVERED', 'CANCELLED'))
+);
+
+CREATE TABLE public.calendar_connection (
+    provider          character varying(20) PRIMARY KEY CHECK (provider IN ('GOOGLE', 'MICROSOFT')),
+    account_email     character varying(200),
+    access_token_enc  text NOT NULL,
+    refresh_token_enc text,
+    expires_at        timestamp with time zone,
+    connected_at      timestamp with time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE public.order_products (

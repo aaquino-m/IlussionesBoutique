@@ -118,7 +118,7 @@ const EVENT_ENTITY_TYPES: Record<AuditEventType, readonly AuditEntityType[]> = {
 };
 
 const VALUE_SETS: Partial<Record<AuditMetadataKey, readonly string[]>> = {
-  SECTION: ['INICIO', 'CLIENTES', 'PEDIDOS', 'INVENTARIO'],
+  SECTION: ['INICIO', 'CLIENTES', 'PEDIDOS', 'INVENTARIO', 'CALENDARIO'],
   OPERATION: [
     'LOAD_APPOINTMENTS',
     'LOAD_CUSTOMERS',
