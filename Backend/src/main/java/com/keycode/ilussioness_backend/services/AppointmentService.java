@@ -4,6 +4,7 @@ import com.keycode.ilussioness_backend.audit.domain.AuditEntityType;
 import com.keycode.ilussioness_backend.audit.domain.AuditEventType;
 import com.keycode.ilussioness_backend.audit.domain.AuditOutcome;
 import com.keycode.ilussioness_backend.audit.service.AuditService;
+import com.keycode.ilussioness_backend.calendar.CalendarService;
 import com.keycode.ilussioness_backend.models.Appointment;
 import com.keycode.ilussioness_backend.models.AppointmentStatus;
 import com.keycode.ilussioness_backend.repositories.AppointmentRepository;
@@ -13,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,15 +30,37 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final CustomerRepository customerRepository;
     private final AuditService auditService;
+    private final CalendarService calendarService;
 
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             CustomerRepository customerRepository,
-            AuditService auditService
+            AuditService auditService,
+            CalendarService calendarService
     ) {
         this.appointmentRepository = appointmentRepository;
         this.customerRepository = customerRepository;
         this.auditService = auditService;
+        this.calendarService = calendarService;
+    }
+
+    /**
+     * Scheduled appointments starting between now and {@code hours} from now,
+     * in chronological order.
+     */
+    @Transactional(readOnly = true)
+    public List<Appointment> getUpcomingAppointments(int hours, ZoneId zone) {
+        LocalDateTime now = LocalDateTime.now(zone);
+        LocalDateTime limit = now.plusHours(hours);
+        return appointmentRepository
+                .findByStatusAndAppointmentDateBetweenOrderByAppointmentDateAscAppointmentTimeAsc(
+                        AppointmentStatus.SCHEDULED, now.toLocalDate(), limit.toLocalDate())
+                .stream()
+                .filter(a -> {
+                    LocalDateTime start = LocalDateTime.of(a.getAppointmentDate(), a.getAppointmentTime());
+                    return !start.isBefore(now) && !start.isAfter(limit);
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -98,6 +123,7 @@ public class AppointmentService {
                 saved.getId() == null ? null : saved.getId().toString(),
                 metadata
         );
+        calendarService.syncAppointment(saved);
         return saved;
     }
 
@@ -129,9 +155,15 @@ public class AppointmentService {
                     appointment.setReason(updates.getReason());
                 }
                 if (updates.getAppointmentDate() != null) {
+                    if (!updates.getAppointmentDate().equals(appointment.getAppointmentDate())) {
+                        appointment.setReminderSentAt(null);
+                    }
                     appointment.setAppointmentDate(updates.getAppointmentDate());
                 }
                 if (updates.getAppointmentTime() != null) {
+                    if (!updates.getAppointmentTime().equals(appointment.getAppointmentTime())) {
+                        appointment.setReminderSentAt(null);
+                    }
                     appointment.setAppointmentTime(updates.getAppointmentTime());
                 }
                 if (updates.getStatus() != null) {
@@ -182,6 +214,7 @@ public class AppointmentService {
                 id.toString(),
                 metadata
         );
+        calendarService.syncAppointment(saved);
         return Optional.of(saved);
     }
 
@@ -204,6 +237,7 @@ public class AppointmentService {
         }
 
         try {
+            appointmentRepository.findById(id).ifPresent(calendarService::removeAppointment);
             appointmentRepository.deleteById(id);
             appointmentRepository.flush();
         } catch (RuntimeException ex) {

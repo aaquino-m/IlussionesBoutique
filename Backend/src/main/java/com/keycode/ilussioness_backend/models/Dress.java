@@ -20,7 +20,7 @@ public class Dress extends Product {
             BigDecimal price,
             String photo,
             String materials,
-            String status,
+            ProductStatus status,
             String measurements,
             String color,
             String cutType,
