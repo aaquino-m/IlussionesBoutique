@@ -60,6 +60,8 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public Optional<Account> findAccount(String email) {
+        // Same BCrypt work for every e-mail, so timing does not reveal accounts.
+        passwordEncoder.matches("unknown", dummyHash);
         String normalized = normalize(email);
         Optional<AppUser> stored = userRepository.findByEmailIgnoreCase(normalized);
         if (stored.isPresent()) {
@@ -73,8 +75,6 @@ public class AccountService {
             return Optional.of(new Account(demoAccountService.email(), demoAccountService.name(),
                     demoAccountService.role(), demoAccountService.passwordHash()));
         }
-        // Keep the work comparable for unknown e-mails.
-        passwordEncoder.matches("unknown", dummyHash);
         return Optional.empty();
     }
 
