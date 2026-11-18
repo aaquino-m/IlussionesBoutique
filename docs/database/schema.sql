@@ -169,7 +169,7 @@ CREATE TABLE public.orders (
     order_id      text NOT NULL,
     event_type    text,
     delivery_date timestamp without time zone,
-    customer_id   uuid REFERENCES public.customer(id) ON DELETE SET NULL,
+    customer_id   uuid,
     status        character varying(20) DEFAULT 'PENDING' NOT NULL,
     stock_reserved boolean DEFAULT false NOT NULL,
     CONSTRAINT orders_status_check CHECK (status IN ('PENDING', 'IN_PROGRESS', 'READY', 'DELIVERED', 'CANCELLED'))
@@ -303,6 +303,7 @@ ALTER TABLE ONLY public.order_dress    ADD CONSTRAINT order_dress_order_id_fkey 
 ALTER TABLE ONLY public.order_dress    ADD CONSTRAINT order_dress_base_product_id_fkey FOREIGN KEY (base_product_id) REFERENCES public.dress(product_id);
 ALTER TABLE ONLY public.payment        ADD CONSTRAINT fk_payment_order  FOREIGN KEY (order_id) REFERENCES public."order"(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.payment        ADD CONSTRAINT fk_payment_user   FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.orders         ADD CONSTRAINT orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customer(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.order_products ADD CONSTRAINT fk_order_products_order   FOREIGN KEY (order_id) REFERENCES public.orders(order_id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_products ADD CONSTRAINT fk_order_products_product FOREIGN KEY (product_id) REFERENCES public.product(id) ON DELETE CASCADE;
 
