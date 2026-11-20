@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { describeTimeUntil, getUpcomingAppointments } from './reminders';
-import type { Appointment } from '../types';
+import { describeTimeUntil, getUpcomingAppointments } from '../src/utils/reminders';
+import type { Appointment } from '../src/types';
 
 const customer = { id: 'c1', name: 'Ana' } as Appointment['customer'];
 
