@@ -29,6 +29,11 @@ public class OrderController {
         return orderService.createOrder(order);
     }
 
+    @GetMapping("/customer/{customerId}")
+    public List<Order> getOrdersByCustomer(@PathVariable("customerId") java.util.UUID customerId) {
+        return orderService.getOrdersByCustomer(customerId);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Order> getOrderById(@PathVariable("id") String id) {
         return orderService.getOrderById(id)

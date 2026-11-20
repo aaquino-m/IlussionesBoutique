@@ -18,7 +18,7 @@ public class Plush extends Product {
             BigDecimal price,
             String photo,
             String materials,
-            String status,
+            ProductStatus status,
             String size,
             String model) {
 

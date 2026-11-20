@@ -60,6 +60,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
+                        // OAuth providers redirect the browser here without a bearer token;
+                        // the request is authenticated by the signed, short-lived state parameter.
+                        .requestMatchers(HttpMethod.GET, "/api/calendar/*/callback").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/audit/events").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())

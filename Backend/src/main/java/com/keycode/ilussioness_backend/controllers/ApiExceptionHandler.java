@@ -32,7 +32,9 @@ import java.util.Map;
         AuthController.class,
         CustomerController.class,
         AppointmentController.class,
-        OrderController.class
+        OrderController.class,
+        ProductController.class,
+        com.keycode.ilussioness_backend.calendar.CalendarController.class
 })
 public class ApiExceptionHandler {
 

@@ -1,5 +1,6 @@
 package com.keycode.ilussioness_backend.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -26,6 +27,19 @@ public class Order {
     @ManyToMany
     @JoinTable(name = "order_products", joinColumns = @JoinColumn(name = "order_id"), inverseJoinColumns = @JoinColumn(name = "product_id"))
     private List<Product> products;
+
+    @ManyToOne
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
+    @Size(max = 20, message = "status must be at most 20 characters")
+    @Column(name = "status", length = 20)
+    private String status;
+
+    /** True when this order took units from inventory (orders created before stock tracking did not). */
+    @JsonIgnore
+    @Column(name = "stock_reserved", nullable = false)
+    private boolean stockReserved;
 
     public Order() {
     }
@@ -73,6 +87,30 @@ public class Order {
 
     public void setDeliveryDate(Date deliveryDate) {
         this.deliveryDate = deliveryDate;
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public boolean isStockReserved() {
+        return stockReserved;
+    }
+
+    public void setStockReserved(boolean stockReserved) {
+        this.stockReserved = stockReserved;
     }
 
     public List<Product> getProducts() {

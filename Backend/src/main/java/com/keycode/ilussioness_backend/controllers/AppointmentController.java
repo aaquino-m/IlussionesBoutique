@@ -1,5 +1,9 @@
 package com.keycode.ilussioness_backend.controllers;
 
+import java.time.ZoneId;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import com.keycode.ilussioness_backend.models.Appointment;
 import com.keycode.ilussioness_backend.services.AppointmentService;
 import jakarta.validation.Valid;
@@ -16,6 +20,9 @@ public class AppointmentController {
 
     private final AppointmentService appointmentService;
 
+    @Value("${app.calendar.time-zone:America/El_Salvador}")
+    private String timeZone;
+
     public AppointmentController(AppointmentService appointmentService) {
         this.appointmentService = appointmentService;
     }
@@ -28,6 +35,13 @@ public class AppointmentController {
     @PostMapping
     public Appointment createAppointment(@Valid @RequestBody Appointment appointment) {
         return appointmentService.createAppointment(appointment);
+    }
+
+    /** Scheduled appointments starting within the next {@code hours} (1-336). */
+    @GetMapping("/upcoming")
+    public List<Appointment> getUpcomingAppointments(@RequestParam(defaultValue = "48") int hours) {
+        int window = Math.max(1, Math.min(hours, 336));
+        return appointmentService.getUpcomingAppointments(window, ZoneId.of(timeZone));
     }
 
     @GetMapping("/{id}")

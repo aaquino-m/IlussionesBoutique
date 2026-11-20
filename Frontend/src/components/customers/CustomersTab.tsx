@@ -19,9 +19,10 @@ interface CustomersTabProps {
   customers: Customer[];
   onNew: () => void;
   onRefresh: () => Promise<void> | void;
+  onOrderCreated?: () => Promise<void> | void;
 }
 
-export function CustomersTab({ customers, onNew, onRefresh }: CustomersTabProps) {
+export function CustomersTab({ customers, onNew, onRefresh, onOrderCreated }: CustomersTabProps) {
   const [search, setSearch] = useState('');
   const [filterBy, setFilterBy] = useState<FilterBy>('registered');
   const [preset, setPreset] = useState<RangePreset>('all');
@@ -227,6 +228,7 @@ export function CustomersTab({ customers, onNew, onRefresh }: CustomersTabProps)
           appointments={appointmentsByCustomer.get(selected.id) ?? []}
           onClose={() => setSelected(null)}
           onSaved={onRefresh}
+          onOrderCreated={onOrderCreated}
         />
       )}
     </div>

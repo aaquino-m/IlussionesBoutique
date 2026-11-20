@@ -1,98 +1,85 @@
-import { request } from './httpClient';
-import type { Order } from '../types';
+import { ApiError, request } from './httpClient';
+import type { Order, OrderStatus } from '../types';
 
 const BASE = '/api/order';
 const LOCAL_STORAGE_KEY = 'demo_orders_ilussiones';
 
-// Pedidos predeterminados de respaldo para la demo
-const DEFAULT_DEMO_ORDERS: Order[] = [
-  {
-    orderId: 'ORD-101',
-    eventType: 'Vestido de Novia Elegante',
-    deliveryDate: '2026-11-25',
-    products: [],
-    status: 'En Proceso'
-  },
-  {
-    orderId: 'ORD-102',
-    eventType: 'Vestido de Quinceañera Rosa',
-    deliveryDate: '2026-12-02',
-    products: [],
-    status: 'Pendiente'
+export interface NewOrderData {
+  orderId: string;
+  customerId: string;
+  eventType: string;
+  deliveryDate: string;
+  productIds: string[];
+}
+
+// Demo fallback: only used when the backend is unreachable (network error).
+// HTTP errors such as validation or insufficient stock are always surfaced.
+const isOffline = (err: unknown) => !(err instanceof ApiError);
+
+const readLocal = (): Order[] => {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]') as Order[];
+  } catch {
+    return [];
   }
-];
+};
+
+const writeLocal = (orders: Order[]) => localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(orders));
 
 export const ordersApi = {
   getAll: async (): Promise<Order[]> => {
     try {
-      const remoteOrders = await request<Order[]>(BASE);
-      const local = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-      return [...remoteOrders, ...local];
-    } catch {
-      const local = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-      return local.length > 0 ? [...local, ...DEFAULT_DEMO_ORDERS] : DEFAULT_DEMO_ORDERS;
+      return await request<Order[]>(BASE);
+    } catch (err) {
+      if (isOffline(err)) return readLocal();
+      throw err;
     }
   },
-
-  create: async (data: { eventType: string; deliveryDate: string; customerId?: string }) => {
+  getByCustomer: (customerId: string) => request<Order[]>(`${BASE}/customer/${customerId}`),
+  create: async (data: NewOrderData): Promise<Order> => {
     try {
-      return await request<Order>(BASE, { method: 'POST', body: JSON.stringify(data) });
+      return await request<Order>(BASE, {
+        method: 'POST',
+        body: JSON.stringify({
+          orderId: data.orderId,
+          eventType: data.eventType,
+          // Midday avoids the stored instant shifting to the previous day in UTC-6.
+          deliveryDate: `${data.deliveryDate}T12:00:00`,
+          customer: { id: data.customerId },
+          products: data.productIds.map((productId) => ({ productId })),
+        }),
+      });
     } catch (err) {
-      console.warn('Aviso de demo: Guardando pedido en almacenamiento local de respaldo.', err);
-      const newOrder: Order = {
-        orderId: 'ORD-' + Math.floor(100 + Math.random() * 900),
+      if (!isOffline(err)) throw err;
+      const order: Order = {
+        orderId: data.orderId,
         eventType: data.eventType,
         deliveryDate: data.deliveryDate,
         products: [],
-        status: 'Registrado'
+        status: 'PENDING',
       };
-      const local = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([newOrder, ...local]));
-      return newOrder;
+      writeLocal([order, ...readLocal()]);
+      return order;
     }
   },
-
-  update: async (id: string, data: { eventType: string; deliveryDate: string }) => {
+  update: async (id: string, data: { eventType: string; deliveryDate: string; status?: OrderStatus }) => {
     try {
       return await request<Order>(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(data) });
     } catch (err) {
-      // 🛡️ BYPASS DE DEMO: Si el PUT falla en el servidor, actualizamos localmente para la presentación
-      console.warn('Aviso de demo: Actualizando pedido en almacenamiento local.', err);
-      const local = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-      
-      let found = false;
-      const updatedLocal = local.map((o: Order) => {
-        if (o.orderId === id) {
-          found = true;
-          return { ...o, ...data, status: 'Actualizado' };
-        }
-        return o;
-      });
-
-      // Si no estaba en local (era uno de los por defecto), lo agregamos como actualizado
-      if (!found) {
-        updatedLocal.push({
-          orderId: id,
-          eventType: data.eventType,
-          deliveryDate: data.deliveryDate,
-          products: [],
-          status: 'Actualizado'
-        });
-      }
-
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLocal));
-      return { orderId: id, ...data, products: [], status: 'Actualizado' } as Order;
+      const local = readLocal();
+      if (!isOffline(err) || !local.some((o) => o.orderId === id)) throw err;
+      const updated = local.map((o) => (o.orderId === id ? { ...o, ...data } : o));
+      writeLocal(updated);
+      return updated.find((o) => o.orderId === id) as Order;
     }
   },
-
   remove: async (id: string): Promise<void> => {
     try {
       await request<void>(`${BASE}/${id}`, { method: 'DELETE' });
-    } catch {
-      // Bypass local para eliminación en demo
-      const local = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-      const filtered = local.filter((o: Order) => o.orderId !== id);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
+    } catch (err) {
+      const local = readLocal();
+      if (!isOffline(err) || !local.some((o) => o.orderId === id)) throw err;
+      writeLocal(local.filter((o) => o.orderId !== id));
     }
   },
 };

@@ -110,6 +110,8 @@ CREATE TABLE public.appointment (
     appointment_time time without time zone NOT NULL,
     status           public.appointment_status DEFAULT 'SCHEDULED'::public.appointment_status NOT NULL,
     google_event_id  character varying(255),
+    microsoft_event_id text,
+    reminder_sent_at timestamp with time zone,
     created_at       timestamp with time zone DEFAULT now() NOT NULL,
     updated_at       timestamp with time zone DEFAULT now() NOT NULL,
     reason           text
@@ -166,7 +168,20 @@ CREATE TABLE public.payment (
 CREATE TABLE public.orders (
     order_id      text NOT NULL,
     event_type    text,
-    delivery_date timestamp without time zone
+    delivery_date timestamp without time zone,
+    customer_id   uuid,
+    status        character varying(20) DEFAULT 'PENDING' NOT NULL,
+    stock_reserved boolean DEFAULT false NOT NULL,
+    CONSTRAINT orders_status_check CHECK (status IN ('PENDING', 'IN_PROGRESS', 'READY', 'DELIVERED', 'CANCELLED'))
+);
+
+CREATE TABLE public.calendar_connection (
+    provider          character varying(20) PRIMARY KEY CHECK (provider IN ('GOOGLE', 'MICROSOFT')),
+    account_email     character varying(200),
+    access_token_enc  text NOT NULL,
+    refresh_token_enc text,
+    expires_at        timestamp with time zone,
+    connected_at      timestamp with time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE public.order_products (
@@ -288,6 +303,7 @@ ALTER TABLE ONLY public.order_dress    ADD CONSTRAINT order_dress_order_id_fkey 
 ALTER TABLE ONLY public.order_dress    ADD CONSTRAINT order_dress_base_product_id_fkey FOREIGN KEY (base_product_id) REFERENCES public.dress(product_id);
 ALTER TABLE ONLY public.payment        ADD CONSTRAINT fk_payment_order  FOREIGN KEY (order_id) REFERENCES public."order"(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.payment        ADD CONSTRAINT fk_payment_user   FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.orders         ADD CONSTRAINT orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customer(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.order_products ADD CONSTRAINT fk_order_products_order   FOREIGN KEY (order_id) REFERENCES public.orders(order_id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_products ADD CONSTRAINT fk_order_products_product FOREIGN KEY (product_id) REFERENCES public.product(id) ON DELETE CASCADE;
 

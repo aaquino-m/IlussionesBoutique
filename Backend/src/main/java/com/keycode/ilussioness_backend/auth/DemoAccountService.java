@@ -56,6 +56,22 @@ public class DemoAccountService {
                 : Optional.empty();
     }
 
+    String email() {
+        return email;
+    }
+
+    String name() {
+        return name;
+    }
+
+    String role() {
+        return role;
+    }
+
+    String passwordHash() {
+        return passwordHash;
+    }
+
     private static String normalizeEmail(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }

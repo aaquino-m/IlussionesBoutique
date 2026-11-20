@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import Login from './components/common/Login';
-import ProductTable from './components/tables/ProductTable';
+import ResetPassword from './components/common/ResetPassword';
+import InventoryTab from './components/inventory/InventoryTab';
+import UpcomingAppointmentsAlert from './components/reminders/UpcomingAppointmentsAlert';
+import CalendarSettings from './components/calendar/CalendarSettings';
 import AuditLogTable from './components/tables/AuditLogTable';
 import CitaCard from './components/common/CitaCard';
 import NewClientModal from './components/common/NewClientModel';
@@ -32,13 +35,14 @@ import type {
   Order,
 } from './types';
 
-type Tab = 'home' | 'customers' | 'orders' | 'inventory' | 'audit';
+type Tab = 'home' | 'customers' | 'orders' | 'inventory' | 'settings' | 'audit';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: 'home', label: 'Inicio', icon: '🏠' },
   { id: 'customers', label: 'Clientes', icon: '👥' },
   { id: 'orders', label: 'Pedidos', icon: '🧵' },
   { id: 'inventory', label: 'Inventario', icon: '📦' },
+  { id: 'settings', label: 'Calendario', icon: '🔗' },
   { id: 'audit', label: 'Auditoría', icon: '🧾' },
 ];
 
@@ -47,6 +51,7 @@ const SECTION_BY_TAB: Record<Tab, string> = {
   customers: 'CLIENTES',
   orders: 'PEDIDOS',
   inventory: 'INVENTARIO',
+  settings: 'CALENDARIO',
   audit: 'AUDITORIA',
 };
 
@@ -54,7 +59,12 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
     getAuthToken() ? getStoredUser() : null,
   );
-  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [activeTab, setActiveTab] = useState<Tab>(() =>
+    new URLSearchParams(window.location.search).has('calendar') ? 'settings' : 'home',
+  );
+  const [resetToken, setResetToken] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('resetToken'),
+  );
   const [appointmentView, setAppointmentView] = useState<'today' | 'week'>('today');
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -262,6 +272,18 @@ export function App() {
     .filter(({ days }) => days >= 0 && days <= 3)
     .sort((a, b) => a.days - b.days)[0];
 
+  if (!isAuthenticated && resetToken) {
+    return (
+      <ResetPassword
+        token={resetToken}
+        onDone={() => {
+          window.history.replaceState(null, '', window.location.pathname);
+          setResetToken(null);
+        }}
+      />
+    );
+  }
+
   if (!isAuthenticated) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
@@ -298,6 +320,11 @@ export function App() {
         <main className="flex-1 w-full p-4 sm:p-8 space-y-6 max-w-7xl mx-auto">
           {activeTab === 'home' && (
             <>
+              <UpcomingAppointmentsAlert
+                appointments={appointments}
+                onView={handleViewAppointment}
+              />
+
               {urgentOrder && (
                 <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-xs flex items-start justify-between w-full">
                   <div className="flex items-start">
@@ -432,6 +459,7 @@ export function App() {
               customers={customers}
               onNew={() => setIsNewClientOpen(true)}
               onRefresh={loadCustomers}
+              onOrderCreated={loadOrders}
             />
           )}
 
@@ -439,7 +467,9 @@ export function App() {
             <OrdersTab orders={orders} onRefresh={loadOrders} />
           )}
 
-          {activeTab === 'inventory' && <ProductTable />}
+          {activeTab === 'inventory' && <InventoryTab />}
+
+          {activeTab === 'settings' && <CalendarSettings />}
 
           {activeTab === 'audit' && <AuditLogTable />}
         </main>

@@ -20,7 +20,7 @@ public class Album extends Product {
             BigDecimal price,
             String photo,
             String materials,
-            String status,
+            ProductStatus status,
             String dimensions,
             String coverMaterial,
             String size,
