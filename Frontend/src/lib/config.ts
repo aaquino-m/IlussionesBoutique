@@ -1,5 +1,5 @@
 const DEFAULT_API_BASE_URL =
-  'https://ilussionesboutique-production.up.railway.app';
+  'https://ilussionesboutique-test.up.railway.app';
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
 
