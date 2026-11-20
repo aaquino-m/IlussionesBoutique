@@ -114,7 +114,7 @@ public class SecurityConfig {
 
         // Same policy as the controllers' @CrossOrigin("*"): bearer-token calls, no cookies.
         CorsConfiguration api = new CorsConfiguration();
-        api.addAllowedOriginPattern("*");
+        api.addAllowedOrigin("*");
         api.addAllowedMethod("*");
         api.addAllowedHeader("*");
         api.setMaxAge(3600L);
