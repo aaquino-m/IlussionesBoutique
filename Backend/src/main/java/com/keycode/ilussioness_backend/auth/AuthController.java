@@ -1,5 +1,9 @@
 package com.keycode.ilussioness_backend.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -22,21 +26,23 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*")
 public class AuthController {
 
     private final AccountService accountService;
     private final JwtTokenService jwtTokenService;
     private final PasswordResetService passwordResetService;
+    private final SessionCookieService sessionCookieService;
 
     public AuthController(
             AccountService accountService,
             JwtTokenService jwtTokenService,
-            PasswordResetService passwordResetService
+            PasswordResetService passwordResetService,
+            SessionCookieService sessionCookieService
     ) {
         this.accountService = accountService;
         this.jwtTokenService = jwtTokenService;
         this.passwordResetService = passwordResetService;
+        this.sessionCookieService = sessionCookieService;
     }
 
     @PostMapping("/login")
@@ -51,9 +57,48 @@ public class AuthController {
         }
 
         JwtTokenService.IssuedToken token = jwtTokenService.issue(user.get());
+        ResponseCookie cookie = request.keepSession()
+                ? accountService.findAccount(user.get().email()).map(sessionCookieService::issue)
+                        .orElseGet(sessionCookieService::clear)
+                : sessionCookieService.clear();
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(LoginResponse.from(token, user.get()));
+    }
+
+    /**
+     * Exchanges the {@code HttpOnly} session cookie for a fresh access token and
+     * renews the cookie (sliding expiration). Answers {@code 401} and clears the
+     * cookie when it is missing, expired or no longer matches the account.
+     */
+    @PostMapping("/session")
+    public ResponseEntity<?> session(HttpServletRequest request) {
+        Optional<AccountService.Account> account = sessionCookieService.read(request)
+                .flatMap(claims -> accountService.findAccount(claims.email())
+                        .filter(found -> sessionCookieService.belongsTo(claims, found)));
+
+        if (account.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .cacheControl(CacheControl.noStore())
+                    .header(HttpHeaders.SET_COOKIE, sessionCookieService.clear().toString())
+                    .body(Map.of("error", "no_session"));
+        }
+
+        AccountService.Account found = account.get();
+        AuthenticatedUser user = new AuthenticatedUser(found.email(), found.name(), found.role());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, sessionCookieService.issue(found).toString())
+                .body(LoginResponse.from(jwtTokenService.issue(user), user));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        return ResponseEntity.noContent()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, sessionCookieService.clear().toString())
+                .build();
     }
 
     /**

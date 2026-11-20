@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import Login from './components/common/Login';
+import ServerWakeScreen from './components/common/ServerWakeScreen';
 import ResetPassword from './components/common/ResetPassword';
 import InventoryTab from './components/inventory/InventoryTab';
 import UpcomingAppointmentsAlert from './components/reminders/UpcomingAppointmentsAlert';
@@ -14,6 +15,8 @@ import OrdersTab from './components/orders/OrdersTab';
 
 import { auditEvent, sanitiseErrorName } from './lib/audit';
 import { clearSession, getAuthToken, getStoredUser } from './lib/authSession';
+import { authApi } from './api/authApi';
+import { restoreSession, retryDelay } from './lib/sessionRestore';
 import {
   appointmentsApi,
   appointmentToCita,
@@ -55,6 +58,8 @@ const SECTION_BY_TAB: Record<Tab, string> = {
   audit: 'AUDITORIA',
 };
 
+const MAX_RESTORE_ATTEMPTS = 8;
+
 export function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
     getAuthToken() ? getStoredUser() : null,
@@ -65,6 +70,11 @@ export function App() {
   const [resetToken, setResetToken] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('resetToken'),
   );
+  // Sin token en esta pestaña intentamos recuperar la sesión desde la cookie HttpOnly.
+  const [restorePhase, setRestorePhase] = useState<'connecting' | 'waking' | 'failed' | null>(() =>
+    currentUser === null && !new URLSearchParams(window.location.search).has('resetToken') ? 'connecting' : null,
+  );
+  const [restoreRun, setRestoreRun] = useState(0);
   const [appointmentView, setAppointmentView] = useState<'today' | 'week'>('today');
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -146,6 +156,36 @@ export function App() {
     void loadOrders();
   }, [isAuthenticated, loadAppointments, loadCustomers, loadOrders]);
 
+  useEffect(() => {
+    if (restorePhase !== 'connecting') return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const attempt = async (n: number) => {
+      const outcome = await restoreSession();
+      if (cancelled) return;
+      if (outcome.status === 'restored') {
+        setCurrentUser(outcome.result.user);
+        setRestorePhase(null);
+      } else if (outcome.status === 'signed-out') {
+        setRestorePhase(null);
+      } else if (n + 1 >= MAX_RESTORE_ATTEMPTS) {
+        setRestorePhase('failed');
+      } else {
+        setRestorePhase('waking');
+        timer = setTimeout(() => void attempt(n + 1), retryDelay(n));
+      }
+    };
+    void attempt(0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // 'waking' no reinicia el ciclo: solo un nuevo restoreRun (Reintentar) lo hace.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreRun]);
+
   const handleLoginSuccess = (user: AuthUser) => {
     setCurrentUser(user);
 
@@ -165,6 +205,7 @@ export function App() {
       eventType: 'UI_LOGOUT_CLICKED',
       entityType: 'AUTH',
     });
+    void authApi.logout().catch(() => undefined);
     clearSession();
     setCurrentUser(null);
     setActiveTab('home');
@@ -271,6 +312,18 @@ export function App() {
     .map((order) => ({ order, days: daysUntil(order.deliveryDate) }))
     .filter(({ days }) => days >= 0 && days <= 3)
     .sort((a, b) => a.days - b.days)[0];
+
+  if (restorePhase) {
+    return (
+      <ServerWakeScreen
+        phase={restorePhase}
+        onRetry={() => {
+          setRestorePhase('connecting');
+          setRestoreRun((run) => run + 1);
+        }}
+      />
+    );
+  }
 
   if (!isAuthenticated && resetToken) {
     return (
