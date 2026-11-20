@@ -288,6 +288,8 @@ body {
 /* `:root` raises specificity above Tailwind's runtime stylesheet, which is injected after this file. */
 :root :is(.bg-white, .hover\:bg-white:hover, .focus\:bg-white:focus) { background-color: rgb(var(--surface)); }
 :root[data-contrast="high"] .border-gray-100 { border-color: rgb(var(--gray-200)); }
+/* In high contrast gray-200 is the border color (black/white); keep it off filled backgrounds so labels stay visible. */
+:root[data-contrast="high"] :is(.bg-gray-200, .hover\:bg-gray-200:hover) { background-color: rgb(var(--gray-100)); outline: 2px solid rgb(var(--gray-200)); }
 :root[data-contrast="high"] :focus-visible { outline: 3px solid rgb(var(--accent-600)); outline-offset: 2px; }
 :root[data-mode="dark"][data-contrast="high"] :is(.text-white, .text-pink-200) { color: #000; }
 :root[data-mode="dark"] :is(.bg-red-50, .bg-red-100) { background-color: rgb(127 29 29 / 0.35); }
