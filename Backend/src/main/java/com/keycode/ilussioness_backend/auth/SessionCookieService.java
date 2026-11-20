@@ -51,16 +51,16 @@ public class SessionCookieService {
         this.decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
     }
 
-    public ResponseCookie issue(AccountService.Account account) {
+    public ResponseCookie issue(String email, String credentialVersion) {
         Duration ttl = Duration.ofDays(settings.getTtlDays());
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(JwtTokenService.ISSUER)
                 .issuedAt(now)
                 .expiresAt(now.plus(ttl))
-                .subject(account.email())
+                .subject(email)
                 .claim("purpose", PURPOSE)
-                .claim("pwd", fingerprint(account.passwordHash()))
+                .claim("pwd", fingerprint(credentialVersion))
                 .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
         String value = encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
@@ -75,9 +75,9 @@ public class SessionCookieService {
      * True when the cookie was issued for this account and its password has not
      * changed since, so a password reset signs out every remembered browser.
      */
-    public boolean belongsTo(SessionClaims claims, AccountService.Account account) {
+    public boolean belongsTo(SessionClaims claims, String credentialVersion) {
         return MessageDigest.isEqual(
-                fingerprint(account.passwordHash()).getBytes(StandardCharsets.UTF_8),
+                fingerprint(credentialVersion).getBytes(StandardCharsets.UTF_8),
                 String.valueOf(claims.passwordFingerprint()).getBytes(StandardCharsets.UTF_8));
     }
 
@@ -110,10 +110,10 @@ public class SessionCookieService {
         }
     }
 
-    private static String fingerprint(String passwordHash) {
+    private static String fingerprint(String credentialVersion) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(String.valueOf(passwordHash).getBytes(StandardCharsets.UTF_8));
+                    .digest(String.valueOf(credentialVersion).getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(digest, 16));
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException(ex);

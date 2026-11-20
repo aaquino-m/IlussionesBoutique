@@ -61,7 +61,7 @@ public class AuthController {
 
         JwtTokenService.IssuedToken token = jwtTokenService.issue(user.get());
         ResponseCookie cookie = request.keepSession()
-                ? accountService.findAccount(user.get().email()).map(sessionCookieService::issue)
+                ? accountService.findAccount(user.get().email()).map(this::sessionCookie)
                         .orElseGet(sessionCookieService::clear)
                 : sessionCookieService.clear();
         return ResponseEntity.ok()
@@ -82,7 +82,7 @@ public class AuthController {
         }
         Optional<AccountService.Account> account = sessionCookieService.read(request)
                 .flatMap(claims -> accountService.findAccount(claims.email())
-                        .filter(found -> sessionCookieService.belongsTo(claims, found)));
+                        .filter(found -> sessionCookieService.belongsTo(claims, accountService.credentialVersion(found))));
 
         if (account.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -95,7 +95,7 @@ public class AuthController {
         AuthenticatedUser user = new AuthenticatedUser(found.email(), found.name(), found.role());
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .header(HttpHeaders.SET_COOKIE, sessionCookieService.issue(found).toString())
+                .header(HttpHeaders.SET_COOKIE, sessionCookie(found).toString())
                 .body(LoginResponse.from(jwtTokenService.issue(user), user));
     }
 
@@ -126,6 +126,10 @@ public class AuthController {
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         passwordResetService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
+    private ResponseCookie sessionCookie(AccountService.Account account) {
+        return sessionCookieService.issue(account.email(), accountService.credentialVersion(account));
     }
 
     /**
