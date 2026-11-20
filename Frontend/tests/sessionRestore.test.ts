@@ -64,6 +64,8 @@ describe('session restore', () => {
 
     await expect(request('/api/customer')).resolves.toEqual([{ id: '1' }]);
 
+    const sessionHeaders = fetchMock.mock.calls[1][1]?.headers as Record<string, string>;
+    expect(sessionHeaders.Authorization).toBeUndefined();
     const retryHeaders = fetchMock.mock.calls[2][1]?.headers as Record<string, string>;
     expect(retryHeaders.Authorization).toBe('Bearer fresh');
     expect(fetchMock.mock.calls[0][1]?.credentials).toBeUndefined();

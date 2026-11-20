@@ -22,17 +22,20 @@ export interface SessionResult {
 
 const AUTH_PREFIX = '/api/auth/';
 
-// Solo las rutas de /api/auth envían la cookie HttpOnly de sesión.
-const send = (path: string, options: RequestInit) =>
-  fetch(`${API_BASE_URL}${path}`, {
+// Las rutas de /api/auth usan la cookie HttpOnly y nunca el Bearer: un token
+// caducado haría que Spring rechazara /session antes de llegar al controlador.
+const send = (path: string, options: RequestInit) => {
+  const isAuth = path.startsWith(AUTH_PREFIX);
+  return fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    credentials: path.startsWith(AUTH_PREFIX) ? 'include' : options.credentials,
+    credentials: isAuth ? 'include' : options.credentials,
     headers: {
       'Content-Type': 'application/json',
-      ...authHeaders(),
+      ...(isAuth ? {} : authHeaders()),
       ...options.headers,
     },
   });
+};
 
 async function parse<T>(response: Response): Promise<T> {
   if (!response.ok) {
