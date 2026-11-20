@@ -55,6 +55,12 @@ public class Appointment {
     @Column(name = "google_event_id")
     private String googleEventId;
 
+    @Column(name = "microsoft_event_id")
+    private String microsoftEventId;
+
+    @Column(name = "reminder_sent_at")
+    private OffsetDateTime reminderSentAt;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -141,5 +147,21 @@ public class Appointment {
 
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getMicrosoftEventId() {
+        return microsoftEventId;
+    }
+
+    public void setMicrosoftEventId(String microsoftEventId) {
+        this.microsoftEventId = microsoftEventId;
+    }
+
+    public OffsetDateTime getReminderSentAt() {
+        return reminderSentAt;
+    }
+
+    public void setReminderSentAt(OffsetDateTime reminderSentAt) {
+        this.reminderSentAt = reminderSentAt;
     }
 }

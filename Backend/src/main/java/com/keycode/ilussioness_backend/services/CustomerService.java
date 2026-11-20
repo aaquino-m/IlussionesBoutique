@@ -6,6 +6,7 @@ import com.keycode.ilussioness_backend.audit.domain.AuditOutcome;
 import com.keycode.ilussioness_backend.audit.service.AuditService;
 import com.keycode.ilussioness_backend.models.Customer;
 import com.keycode.ilussioness_backend.repositories.CustomerRepository;
+import com.keycode.ilussioness_backend.repositories.OrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -24,10 +25,16 @@ public class CustomerService {
     private static final int PHONE_MAX_LENGTH = 20;
 
     private final CustomerRepository customerRepository;
+    private final OrderRepository orderRepository;
     private final AuditService auditService;
 
-    public CustomerService(CustomerRepository customerRepository, AuditService auditService) {
+    public CustomerService(
+            CustomerRepository customerRepository,
+            OrderRepository orderRepository,
+            AuditService auditService
+    ) {
         this.customerRepository = customerRepository;
+        this.orderRepository = orderRepository;
         this.auditService = auditService;
     }
 
@@ -159,6 +166,7 @@ public class CustomerService {
         }
 
         try {
+            orderRepository.detachCustomer(id);
             customerRepository.deleteById(id);
             customerRepository.flush();
         } catch (RuntimeException ex) {

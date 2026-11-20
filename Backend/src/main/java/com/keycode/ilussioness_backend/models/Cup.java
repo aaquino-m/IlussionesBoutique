@@ -19,7 +19,7 @@ public class Cup extends Product {
             BigDecimal price,
             String photo,
             String materials,
-            String status,
+            ProductStatus status,
             int quantity,
             double capacity,
             String design) {

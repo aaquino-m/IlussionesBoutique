@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from 'react';
-import type { Appointment, Customer } from '../../types';
+import { useEffect, useState, type FormEvent } from 'react';
+import type { Appointment, Customer, Order } from '../../types';
 import { customersApi } from '../../api/customersApi';
 import { ApiError } from '../../api/httpClient';
 import { formatDate, formatDateOnly, to12h } from '../../utils/dates';
 import AppointmentModal from '../appointments/AppointmentModal';
+import NewOrderModal from '../orders/NewOrderModal';
+import { ordersApi } from '../../api/ordersApi';
 
 interface CustomerModalProps {
   customer: Customer;
@@ -11,7 +13,16 @@ interface CustomerModalProps {
   appointments: Appointment[];
   onClose: () => void;
   onSaved: () => Promise<void> | void;
+  onOrderCreated?: () => Promise<void> | void;
 }
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendiente',
+  IN_PROGRESS: 'En proceso',
+  READY: 'Listo',
+  DELIVERED: 'Entregado',
+  CANCELLED: 'Cancelado',
+};
 
 const STATUS_LABELS: Record<string, string> = {
   SCHEDULED: 'Programada',
@@ -21,7 +32,31 @@ const STATUS_LABELS: Record<string, string> = {
 
 const inputClass = 'w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-pink-500';
 
-export function CustomerModal({ customer, customers, appointments, onClose, onSaved }: CustomerModalProps) {
+export function CustomerModal({ customer, customers, appointments, onClose, onSaved, onOrderCreated }: CustomerModalProps) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersError, setOrdersError] = useState('');
+  const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
+
+  const loadOrders = async () => {
+    try {
+      setOrders(await ordersApi.getByCustomer(customer.id));
+      setOrdersError('');
+    } catch {
+      setOrdersError('No se pudieron cargar los pedidos.');
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    ordersApi
+      .getByCustomer(customer.id)
+      .then((result) => active && setOrders(result))
+      .catch(() => active && setOrdersError('No se pudieron cargar los pedidos.'));
+    return () => {
+      active = false;
+    };
+  }, [customer.id]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(customer.name);
   const [phone, setPhone] = useState(customer.phone ?? '');
@@ -160,6 +195,39 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
                 })}
               </div>
             </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-gray-400 text-[10px] block uppercase font-bold">
+                  Pedidos ({orders.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsNewOrderOpen(true)}
+                  className="px-2 py-1 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                >
+                  + Añadir pedido
+                </button>
+              </div>
+              <div className="bg-gray-50 border border-gray-100 rounded-xl divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                {ordersError && <p className="p-2.5 text-red-500">{ordersError}</p>}
+                {!ordersError && orders.length === 0 && <p className="p-2.5 text-gray-400">Sin pedidos registrados.</p>}
+                {orders.map((order) => (
+                  <div key={order.orderId} className="p-2.5 flex justify-between items-center gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-700">{order.eventType}</p>
+                      <p className="text-gray-500">
+                        {order.orderId} · Entrega {order.deliveryDate ? formatDateOnly(order.deliveryDate.slice(0, 10)) : 'sin fecha'}
+                        {order.products?.length ? ` · ${order.products.length} producto(s)` : ''}
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 whitespace-nowrap">
+                      {ORDER_STATUS_LABELS[order.status ?? 'PENDING'] ?? order.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -177,6 +245,17 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
           </div>
         )}
       </form>
+
+      {isNewOrderOpen && (
+        <NewOrderModal
+          customer={customer}
+          onClose={() => setIsNewOrderOpen(false)}
+          onCreated={async () => {
+            await loadOrders();
+            await onOrderCreated?.();
+          }}
+        />
+      )}
 
       {/* Sub-modal para editar la cita seleccionada del historial */}
       {editingAppointment && (

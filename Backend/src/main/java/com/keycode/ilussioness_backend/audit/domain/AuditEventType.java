@@ -252,6 +252,48 @@ public enum AuditEventType {
             Set.of(AuditEntityType.ORDER),
             false,
             Set.of(AuditMetadataKey.REASON)
+    ),
+    PRODUCT_CREATED(
+            AuditAction.CREATE,
+            Set.of(AuditEntityType.PRODUCT),
+            false,
+            Set.of()
+    ),
+    PRODUCT_UPDATED(
+            AuditAction.UPDATE,
+            Set.of(AuditEntityType.PRODUCT),
+            false,
+            Set.of()
+    ),
+    PRODUCT_DELETED(
+            AuditAction.DELETE,
+            Set.of(AuditEntityType.PRODUCT),
+            false,
+            Set.of()
+    ),
+    PRODUCT_OPERATION_REJECTED(
+            AuditAction.VALIDATION_FAILED,
+            Set.of(AuditEntityType.PRODUCT),
+            false,
+            Set.of(AuditMetadataKey.REASON)
+    ),
+    AUTH_PASSWORD_RESET_REQUESTED(
+            AuditAction.SUBMIT,
+            Set.of(AuditEntityType.AUTH),
+            false,
+            Set.of()
+    ),
+    AUTH_PASSWORD_RESET_COMPLETED(
+            AuditAction.UPDATE,
+            Set.of(AuditEntityType.AUTH),
+            false,
+            Set.of()
+    ),
+    AUTH_PASSWORD_RESET_REJECTED(
+            AuditAction.VALIDATION_FAILED,
+            Set.of(AuditEntityType.AUTH),
+            false,
+            Set.of(AuditMetadataKey.REASON)
     );
 
     private final AuditAction action;

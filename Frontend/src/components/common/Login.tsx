@@ -27,6 +27,7 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetSent, setResetSent] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -65,15 +66,26 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleReset = (e: FormEvent<HTMLFormElement>) => {
+  const handleReset = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!EMAIL_REGEX.test(resetEmail.trim())) {
       setResetError('Enter a valid email address.');
       return;
     }
-    // TODO: conectar con la recuperación real (p. ej. supabase.auth.resetPasswordForEmail)
     setResetError('');
-    setResetSent(true);
+    setResetSubmitting(true);
+    try {
+      await authApi.forgotPassword(resetEmail.trim());
+      setResetSent(true);
+    } catch (err) {
+      setResetError(
+        err instanceof ApiError && err.status === 400
+          ? 'Enter a valid email address.'
+          : 'Could not send the instructions. Please try again.',
+      );
+    } finally {
+      setResetSubmitting(false);
+    }
   };
 
   const closeForgot = () => {
@@ -205,9 +217,10 @@ export const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
                 )}
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  disabled={resetSubmitting}
+                  className="w-full py-2.5 bg-pink-600 hover:bg-pink-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold cursor-pointer"
                 >
-                  Send instructions
+                  {resetSubmitting ? 'Sending...' : 'Send instructions'}
                 </button>
               </>
             )}

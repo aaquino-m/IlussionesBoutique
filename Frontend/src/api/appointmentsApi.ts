@@ -7,6 +7,7 @@ const BASE = '/api/appointment';
 
 export const appointmentsApi = {
   getAll: () => request<Appointment[]>(BASE),
+  getUpcoming: (hours = 48) => request<Appointment[]>(`${BASE}/upcoming?hours=${hours}`),
   create: (data: {
     customerId: string;
     reason: string;

@@ -18,7 +18,7 @@ public class Card extends Product {
             BigDecimal price,
             String photo,
             String materials,
-            String status,
+            ProductStatus status,
             int quantity,
             String design) {
 

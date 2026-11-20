@@ -25,17 +25,23 @@ import java.util.Optional;
 @CrossOrigin(origins = "*")
 public class AuthController {
 
-    private final DemoAccountService demoAccountService;
+    private final AccountService accountService;
     private final JwtTokenService jwtTokenService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(DemoAccountService demoAccountService, JwtTokenService jwtTokenService) {
-        this.demoAccountService = demoAccountService;
+    public AuthController(
+            AccountService accountService,
+            JwtTokenService jwtTokenService,
+            PasswordResetService passwordResetService
+    ) {
+        this.accountService = accountService;
         this.jwtTokenService = jwtTokenService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
-        Optional<AuthenticatedUser> user = demoAccountService.authenticate(
+        Optional<AuthenticatedUser> user = accountService.authenticate(
                 request.email(), request.password());
 
         if (user.isEmpty()) {
@@ -48,5 +54,23 @@ public class AuthController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(LoginResponse.from(token, user.get()));
+    }
+
+    /**
+     * Always answers {@code 202} with the same body, whether or not the e-mail
+     * belongs to an account.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request.email());
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .cacheControl(CacheControl.noStore())
+                .body(Map.of("status", "accepted"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 }
