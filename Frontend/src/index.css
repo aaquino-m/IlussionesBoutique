@@ -285,7 +285,8 @@ body {
 }
 
 /* Utilities outside the remapped palettes. */
-.bg-white { background-color: rgb(var(--surface)); }
+/* `:root` raises specificity above Tailwind's runtime stylesheet, which is injected after this file. */
+:root :is(.bg-white, .hover\:bg-white:hover, .focus\:bg-white:focus) { background-color: rgb(var(--surface)); }
 :root[data-contrast="high"] .border-gray-100 { border-color: rgb(var(--gray-200)); }
 :root[data-contrast="high"] :focus-visible { outline: 3px solid rgb(var(--accent-600)); outline-offset: 2px; }
 :root[data-mode="dark"][data-contrast="high"] :is(.text-white, .text-pink-200) { color: #000; }
