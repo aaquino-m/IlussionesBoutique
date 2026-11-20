@@ -72,7 +72,7 @@ class SessionCookieApiTest {
     void sessionExchangesCookieForAccessTokenAndRenewsIt() throws Exception {
         Cookie cookie = sessionCookie(login(true));
 
-        MvcResult result = mockMvc.perform(post("/api/auth/session").cookie(cookie))
+        MvcResult result = mockMvc.perform(post("/api/auth/session").header("X-Requested-With", "XMLHttpRequest").cookie(cookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.email").value(EMAIL))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
@@ -86,10 +86,10 @@ class SessionCookieApiTest {
 
     @Test
     void sessionWithoutValidCookieIsUnauthorized() throws Exception {
-        mockMvc.perform(post("/api/auth/session"))
+        mockMvc.perform(post("/api/auth/session").header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("no_session"));
-        mockMvc.perform(post("/api/auth/session").cookie(new Cookie(COOKIE, "not-a-jwt")))
+        mockMvc.perform(post("/api/auth/session").header("X-Requested-With", "XMLHttpRequest").cookie(new Cookie(COOKIE, "not-a-jwt")))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -105,13 +105,24 @@ class SessionCookieApiTest {
     void accessTokenIsNotAcceptedAsSessionCookie() throws Exception {
         String token = JsonPath.read(login(false).getResponse().getContentAsString(), "$.token");
 
-        mockMvc.perform(post("/api/auth/session").cookie(new Cookie(COOKIE, token)))
+        mockMvc.perform(post("/api/auth/session").header("X-Requested-With", "XMLHttpRequest").cookie(new Cookie(COOKIE, token)))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
+    void cookieEndpointsRequireTheScriptHeader() throws Exception {
+        Cookie cookie = sessionCookie(login(true));
+
+        mockMvc.perform(post("/api/auth/session").cookie(cookie))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("csrf_header_required"));
+        mockMvc.perform(post("/api/auth/logout").cookie(cookie))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void logoutClearsTheCookie() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/auth/logout"))
+        MvcResult result = mockMvc.perform(post("/api/auth/logout").header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isNoContent())
                 .andReturn();
 

@@ -31,7 +31,8 @@ const send = (path: string, options: RequestInit) => {
     credentials: isAuth ? 'include' : options.credentials,
     headers: {
       'Content-Type': 'application/json',
-      ...(isAuth ? {} : authHeaders()),
+      // Cabecera anti-CSRF que el backend exige en /session y /logout.
+      ...(isAuth ? { 'X-Requested-With': 'XMLHttpRequest' } : authHeaders()),
       ...options.headers,
     },
   });

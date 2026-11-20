@@ -28,6 +28,9 @@ import java.util.Optional;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    static final String SCRIPT_REQUEST_HEADER = "X-Requested-With";
+    static final String SCRIPT_REQUEST_VALUE = "XMLHttpRequest";
+
     private final AccountService accountService;
     private final JwtTokenService jwtTokenService;
     private final PasswordResetService passwordResetService;
@@ -74,6 +77,9 @@ public class AuthController {
      */
     @PostMapping("/session")
     public ResponseEntity<?> session(HttpServletRequest request) {
+        if (!isScriptRequest(request)) {
+            return csrfRejected();
+        }
         Optional<AccountService.Account> account = sessionCookieService.read(request)
                 .flatMap(claims -> accountService.findAccount(claims.email())
                         .filter(found -> sessionCookieService.belongsTo(claims, found)));
@@ -94,7 +100,10 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout() {
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        if (!isScriptRequest(request)) {
+            return csrfRejected();
+        }
         return ResponseEntity.noContent()
                 .cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.SET_COOKIE, sessionCookieService.clear().toString())
@@ -117,5 +126,20 @@ public class AuthController {
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         passwordResetService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
+    /**
+     * CSRF guard for the cookie endpoints: a cross-site form cannot add custom
+     * headers, and a cross-site script needs a CORS preflight that only the
+     * configured frontend origins pass.
+     */
+    private static boolean isScriptRequest(HttpServletRequest request) {
+        return SCRIPT_REQUEST_VALUE.equals(request.getHeader(SCRIPT_REQUEST_HEADER));
+    }
+
+    private static ResponseEntity<Map<String, String>> csrfRejected() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .cacheControl(CacheControl.noStore())
+                .body(Map.of("error", "csrf_header_required"));
     }
 }
