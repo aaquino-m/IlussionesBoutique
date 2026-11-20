@@ -14,7 +14,7 @@ import CustomersTab from './components/customers/CustomersTab';
 import OrdersTab from './components/orders/OrdersTab';
 
 import { auditEvent, sanitiseErrorName } from './lib/audit';
-import { clearSession, getAuthToken, getStoredUser } from './lib/authSession';
+import { clearSession, clearSignedOut, getAuthToken, getStoredUser, isSignedOut, markSignedOut } from './lib/authSession';
 import { authApi } from './api/authApi';
 import { restoreSession, retryDelay } from './lib/sessionRestore';
 import {
@@ -60,6 +60,11 @@ const SECTION_BY_TAB: Record<Tab, string> = {
 
 const MAX_RESTORE_ATTEMPTS = 8;
 
+const signOutOnServer = () => {
+  markSignedOut();
+  return authApi.logout().then(clearSignedOut, () => undefined);
+};
+
 export function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
     getAuthToken() ? getStoredUser() : null,
@@ -72,7 +77,9 @@ export function App() {
   );
   // Sin token en esta pestaña intentamos recuperar la sesión desde la cookie HttpOnly.
   const [restorePhase, setRestorePhase] = useState<'connecting' | 'waking' | 'failed' | null>(() =>
-    currentUser === null && !new URLSearchParams(window.location.search).has('resetToken') ? 'connecting' : null,
+    currentUser === null && !isSignedOut() && !new URLSearchParams(window.location.search).has('resetToken')
+      ? 'connecting'
+      : null,
   );
   const [restoreRun, setRestoreRun] = useState(0);
   const [appointmentView, setAppointmentView] = useState<'today' | 'week'>('today');
@@ -156,6 +163,11 @@ export function App() {
     void loadOrders();
   }, [isAuthenticated, loadAppointments, loadCustomers, loadOrders]);
 
+  // Un logout anterior que no llegó al servidor: lo reintentamos en segundo plano.
+  useEffect(() => {
+    if (isSignedOut() && getAuthToken() === null) void signOutOnServer();
+  }, []);
+
   useEffect(() => {
     if (restorePhase !== 'connecting') return;
 
@@ -187,6 +199,7 @@ export function App() {
   }, [restoreRun]);
 
   const handleLoginSuccess = (user: AuthUser) => {
+    clearSignedOut();
     setCurrentUser(user);
 
     auditEvent({
@@ -205,7 +218,7 @@ export function App() {
       eventType: 'UI_LOGOUT_CLICKED',
       entityType: 'AUTH',
     });
-    void authApi.logout().catch(() => undefined);
+    void signOutOnServer();
     clearSession();
     setCurrentUser(null);
     setActiveTab('home');
