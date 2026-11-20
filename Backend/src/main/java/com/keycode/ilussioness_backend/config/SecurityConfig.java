@@ -92,7 +92,8 @@ public class SecurityConfig {
     /**
      * Credentialed CORS for {@code /api/auth/**}, so the browser may send and
      * store the session cookie. Only the configured frontend origins are allowed;
-     * other paths keep their controller-level {@code @CrossOrigin} settings.
+     * every other path allows any origin without credentials. The security CORS
+     * filter answers preflights from this source, so every path must be covered.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
@@ -111,8 +112,16 @@ public class SecurityConfig {
         auth.setAllowCredentials(true);
         auth.setMaxAge(3600L);
 
+        // Same policy as the controllers' @CrossOrigin("*"): bearer-token calls, no cookies.
+        CorsConfiguration api = new CorsConfiguration();
+        api.addAllowedOriginPattern("*");
+        api.addAllowedMethod("*");
+        api.addAllowedHeader("*");
+        api.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/auth/**", auth);
+        source.registerCorsConfiguration("/**", api);
         return source;
     }
 

@@ -131,6 +131,14 @@ class SessionCookieApiTest {
                     .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
         }
 
+        mockMvc.perform(options("/api/customer")
+                        .header(HttpHeaders.ORIGIN, "https://evil.vercel.app")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*"))
+                .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS));
+
         mockMvc.perform(options("/api/auth/session")
                         .header(HttpHeaders.ORIGIN, "https://evil.vercel.app")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
