@@ -20,6 +20,20 @@ public class AuthProperties {
 
     private final Demo demo = new Demo();
 
+    private final Session session = new Session();
+
+    /**
+     * Exact browser origins (scheme, host and optional port) allowed to call
+     * {@code /api/auth/**} with credentials (the session cookie). Wildcards are rejected.
+     */
+    private java.util.List<String> allowedOrigins = new java.util.ArrayList<>();
+
+    /**
+     * Optional full-match regular expression for extra credentialed origins, such
+     * as the Vercel preview deployments. Empty disables it.
+     */
+    private String allowedOriginRegex = "";
+
     public String getJwtSecret() {
         return jwtSecret;
     }
@@ -38,6 +52,68 @@ public class AuthProperties {
 
     public Demo getDemo() {
         return demo;
+    }
+
+    public Session getSession() {
+        return session;
+    }
+
+    public java.util.List<String> getAllowedOrigins() {
+        return allowedOrigins;
+    }
+
+    public void setAllowedOrigins(java.util.List<String> allowedOrigins) {
+        this.allowedOrigins = allowedOrigins;
+    }
+
+    public String getAllowedOriginRegex() {
+        return allowedOriginRegex;
+    }
+
+    public void setAllowedOriginRegex(String allowedOriginRegex) {
+        this.allowedOriginRegex = allowedOriginRegex;
+    }
+
+    /** Long-lived, HttpOnly session cookie used to restore a login. */
+    public static class Session {
+
+        private String cookieName = "ilussiones_session";
+        private long ttlDays = 14;
+        private boolean secure = true;
+        /** {@code None} is required while the frontend and API live on different sites. */
+        private String sameSite = "None";
+
+        public String getCookieName() {
+            return cookieName;
+        }
+
+        public void setCookieName(String cookieName) {
+            this.cookieName = cookieName;
+        }
+
+        public long getTtlDays() {
+            return ttlDays;
+        }
+
+        public void setTtlDays(long ttlDays) {
+            this.ttlDays = ttlDays;
+        }
+
+        public boolean isSecure() {
+            return secure;
+        }
+
+        public void setSecure(boolean secure) {
+            this.secure = secure;
+        }
+
+        public String getSameSite() {
+            return sameSite;
+        }
+
+        public void setSameSite(String sameSite) {
+            this.sameSite = sameSite;
+        }
     }
 
     /**

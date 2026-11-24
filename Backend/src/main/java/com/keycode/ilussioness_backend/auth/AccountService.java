@@ -58,6 +58,16 @@ public class AccountService {
                 : Optional.empty();
     }
 
+    /**
+     * Value that changes whenever the account's password changes. The demo
+     * account's BCrypt hash is re-salted on every start, so it uses a stable key.
+     */
+    public String credentialVersion(Account account) {
+        return account.passwordHash().equals(demoAccountService.passwordHash())
+                ? demoAccountService.credentialVersion()
+                : account.passwordHash();
+    }
+
     @Transactional(readOnly = true)
     public Optional<Account> findAccount(String email) {
         // Same BCrypt work for every e-mail, so timing does not reveal accounts.
