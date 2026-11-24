@@ -306,7 +306,7 @@ async function sendEvent(payload: AuditEventPayload): Promise<void> {
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    await fetch(`${API_BASE_URL}/audit/events`, {
+    await fetch(`${API_BASE_URL}/api/audit/events`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
