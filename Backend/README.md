@@ -11,7 +11,8 @@ Run `database/boutique_features.sql` in the Supabase SQL editor before deploying
 | --- | --- |
 | Frontend URL (reset links, OAuth return) | `APP_FRONTEND_URL` |
 | Session cookie lifetime in days (default 14) | `APP_SESSION_TTL_DAYS` |
-| Extra frontend origins allowed to use the session cookie (comma-separated patterns) | `APP_CORS_ALLOWED_ORIGINS` |
+| Exact frontend origins allowed to use the session cookie (comma-separated, no wildcards) | `APP_CORS_ALLOWED_ORIGINS` |
+| Optional full-match regex for extra cookie origins (Vercel previews; test service only) | `APP_CORS_ALLOWED_ORIGIN_REGEX` |
 | Session cookie `Secure` / `SameSite` (defaults `true` / `None`) | `APP_SESSION_COOKIE_SECURE`, `APP_SESSION_COOKIE_SAME_SITE` |
 | SMTP for password-reset and reminder e-mails | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `APP_MAIL_FROM` |
 | Password reset | `APP_PASSWORD_RESET_TTL_MINUTES` (default 30), `APP_PASSWORD_RESET_LOG_LINK` (dev only) |

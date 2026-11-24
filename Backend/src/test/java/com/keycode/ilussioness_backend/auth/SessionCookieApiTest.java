@@ -22,7 +22,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:session-cookie;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
-        "app.auth.allowed-origins=https://ilussiones-boutique-*-key-code1.vercel.app",
+        "app.auth.allowed-origins=https://ilussiones-boutique.vercel.app",
+        "app.auth.allowed-origin-regex=^https://ilussiones-boutique-(git-[a-z0-9-]+|[a-z0-9]{9})-key-code1[.]vercel[.]app$",
         "app.frontend-url=https://boutique.example.com"
 })
 @AutoConfigureMockMvc
@@ -133,7 +134,9 @@ class SessionCookieApiTest {
     void credentialedCorsOnlyForConfiguredFrontendOrigins() throws Exception {
         for (String origin : new String[]{
                 "https://boutique.example.com",
-                "https://ilussiones-boutique-git-feature-key-code1.vercel.app"}) {
+                "https://ilussiones-boutique.vercel.app",
+                "https://ilussiones-boutique-git-feature-key-code1.vercel.app",
+                "https://ilussiones-boutique-4npy2bxng-key-code1.vercel.app"}) {
             mockMvc.perform(options("/api/auth/session")
                             .header(HttpHeaders.ORIGIN, origin)
                             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
@@ -150,9 +153,17 @@ class SessionCookieApiTest {
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*"))
                 .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS));
 
-        mockMvc.perform(options("/api/auth/session")
-                        .header(HttpHeaders.ORIGIN, "https://evil.vercel.app")
-                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
-                .andExpect(status().isForbidden());
+        for (String origin : new String[]{
+                "https://evil.vercel.app",
+                "https://ilussiones-boutique-attacker-key-code1.vercel.app",
+                "https://ilussiones-boutique-x.evil-key-code1.vercel.app",
+                "http://ilussiones-boutique-git-feature-key-code1.vercel.app",
+                "https://ilussiones-boutique.vercel.app.evil.com",
+                "null"}) {
+            mockMvc.perform(options("/api/auth/session")
+                            .header(HttpHeaders.ORIGIN, origin)
+                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+                    .andExpect(status().isForbidden());
+        }
     }
 }
