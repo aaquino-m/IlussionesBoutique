@@ -50,6 +50,8 @@ describe('audit client', () => {
     expect(JSON.stringify(body)).not.toContain('customer@example.com');
     expect(body).not.toHaveProperty('sessionId');
 
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/api\/audit\/events$/);
+
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     const headers = init.headers as Record<string, string>;
     expect(headers['X-Audit-Session-Id']).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
