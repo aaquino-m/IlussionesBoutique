@@ -23,11 +23,16 @@ public class AuthProperties {
     private final Session session = new Session();
 
     /**
-     * Browser origins allowed to call {@code /api/auth/**} with credentials
-     * (the session cookie). Origin patterns such as
-     * {@code https://app-*-team.vercel.app} are accepted.
+     * Exact browser origins (scheme, host and optional port) allowed to call
+     * {@code /api/auth/**} with credentials (the session cookie). Wildcards are rejected.
      */
     private java.util.List<String> allowedOrigins = new java.util.ArrayList<>();
+
+    /**
+     * Optional full-match regular expression for extra credentialed origins, such
+     * as the Vercel preview deployments. Empty disables it.
+     */
+    private String allowedOriginRegex = "";
 
     public String getJwtSecret() {
         return jwtSecret;
@@ -59,6 +64,14 @@ public class AuthProperties {
 
     public void setAllowedOrigins(java.util.List<String> allowedOrigins) {
         this.allowedOrigins = allowedOrigins;
+    }
+
+    public String getAllowedOriginRegex() {
+        return allowedOriginRegex;
+    }
+
+    public void setAllowedOriginRegex(String allowedOriginRegex) {
+        this.allowedOriginRegex = allowedOriginRegex;
     }
 
     /** Long-lived, HttpOnly session cookie used to restore a login. */

@@ -6,6 +6,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import com.keycode.ilussioness_backend.auth.AuthProperties;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
@@ -91,22 +92,40 @@ public class SecurityConfig {
 
     /**
      * Credentialed CORS for {@code /api/auth/**}, so the browser may send and
-     * store the session cookie. Only the configured frontend origins are allowed;
-     * every other path allows any origin without credentials. The security CORS
-     * filter answers preflights from this source, so every path must be covered.
+     * store the session cookie. Only the exact configured frontend origins, plus
+     * origins fully matching the optional regex, are allowed; every other path
+     * allows any origin without credentials. The security CORS filter answers
+     * preflights from this source, so every path must be covered.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
             AuthProperties properties,
             @Value("${app.frontend-url:}") String frontendUrl
     ) {
-        List<String> origins = new ArrayList<>(properties.getAllowedOrigins());
-        if (!frontendUrl.isBlank()) {
-            origins.add(frontendUrl.replaceAll("/+$", ""));
+        List<String> origins = new ArrayList<>();
+        for (String origin : properties.getAllowedOrigins()) {
+            if (!origin.isBlank()) {
+                origins.add(exactOrigin(origin, "app.auth.allowed-origins"));
+            }
         }
+        if (!frontendUrl.isBlank()) {
+            origins.add(exactOrigin(frontendUrl, "app.frontend-url"));
+        }
+        String regex = properties.getAllowedOriginRegex();
+        Pattern extraOrigins = regex == null || regex.isBlank() ? null : Pattern.compile(regex.trim());
 
-        CorsConfiguration auth = new CorsConfiguration();
-        auth.setAllowedOriginPatterns(origins);
+        CorsConfiguration auth = new CorsConfiguration() {
+            @Override
+            public String checkOrigin(String requestOrigin) {
+                String allowed = super.checkOrigin(requestOrigin);
+                if (allowed == null && requestOrigin != null && extraOrigins != null
+                        && extraOrigins.matcher(requestOrigin).matches()) {
+                    return requestOrigin;
+                }
+                return allowed;
+            }
+        };
+        auth.setAllowedOrigins(origins);
         auth.setAllowedMethods(List.of("POST", "OPTIONS"));
         auth.setAllowedHeaders(List.of("*"));
         auth.setAllowCredentials(true);
@@ -123,6 +142,14 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/api/auth/**", auth);
         source.registerCorsConfiguration("/**", api);
         return source;
+    }
+
+    private static String exactOrigin(String origin, String property) {
+        String value = origin.trim().replaceAll("/+$", "");
+        if (value.contains("*")) {
+            throw new IllegalStateException(property + " must list exact origins, not patterns: " + value);
+        }
+        return value;
     }
 
     @Bean
