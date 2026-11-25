@@ -1,41 +1,91 @@
 import { ApiError, request } from './httpClient';
-import type { Order, OrderStatus } from '../types';
+import type { Customer, Order, OrderStatus, Product } from '../types';
 
 const BASE = '/api/order';
-const LOCAL_STORAGE_KEY = 'demo_orders_ilussiones';
+export const LOCAL_ORDERS_KEY = 'demo_orders_ilussiones';
 
 export interface NewOrderData {
   orderId: string;
   customerId: string;
   eventType: string;
-  deliveryDate: string;
+  deliveryDate: string; // "2026-10-29"
   productIds: string[];
+  /** Copia que solo se usa si el pedido se guarda en este dispositivo. */
+  customer?: Customer;
+  products?: Product[];
 }
 
-// Demo fallback: only used when the backend is unreachable (network error).
-// HTTP errors such as validation or insufficient stock are always surfaced.
+export interface OrdersListing {
+  orders: Order[];
+  /** true cuando el backend no respondió y solo se muestran pedidos locales. */
+  offline: boolean;
+}
+
+/** No hay conexión con el backend y tampoco se pudo guardar el pedido en este dispositivo. */
+export class LocalSaveError extends Error {
+  constructor(cause?: unknown) {
+    super('local_save_failed', { cause });
+    this.name = 'LocalSaveError';
+  }
+}
+
+// Respaldo sin conexión: solo se usa si el backend no responde (error de red o CORS).
+// Los errores HTTP (validación, stock insuficiente, sesión...) siempre se muestran.
 const isOffline = (err: unknown) => !(err instanceof ApiError);
+
+// Midday avoids the stored instant shifting to the previous day in UTC-6.
+const toDeliveryInstant = (date: string) => `${date}T12:00:00`;
 
 const readLocal = (): Order[] => {
   try {
-    return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]') as Order[];
+    const stored = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]') as Order[];
+    return Array.isArray(stored) ? stored.map((order) => ({ ...order, localOnly: true })) : [];
   } catch {
     return [];
   }
 };
 
-const writeLocal = (orders: Order[]) => localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(orders));
+const writeLocal = (orders: Order[]) => {
+  try {
+    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(orders));
+  } catch (err) {
+    throw new LocalSaveError(err);
+  }
+};
+
+const findLocal = (id: string) => readLocal().find((order) => order.orderId === id);
+
+const forCustomer = (orders: Order[], customerId: string) =>
+  orders.filter((order) => order.customer?.id === customerId);
+
+async function withLocal(load: () => Promise<Order[]>, local: Order[]): Promise<OrdersListing> {
+  try {
+    return { orders: [...local, ...(await load())], offline: false };
+  } catch (err) {
+    if (isOffline(err)) return { orders: local, offline: true };
+    throw err;
+  }
+}
+
+/** Borra los pedidos guardados solo en este navegador (se llama al cerrar sesión). */
+export function clearLocalOrders(): void {
+  try {
+    localStorage.removeItem(LOCAL_ORDERS_KEY);
+  } catch {
+    // Sin almacenamiento no hay nada que borrar.
+  }
+}
 
 export const ordersApi = {
-  getAll: async (): Promise<Order[]> => {
-    try {
-      return await request<Order[]>(BASE);
-    } catch (err) {
-      if (isOffline(err)) return readLocal();
-      throw err;
-    }
-  },
-  getByCustomer: (customerId: string) => request<Order[]>(`${BASE}/customer/${customerId}`),
+  /** Pedidos del servidor más los guardados solo en este dispositivo (`localOnly`). */
+  list: () => withLocal(() => request<Order[]>(BASE), readLocal()),
+  listByCustomer: (customerId: string) =>
+    withLocal(() => request<Order[]>(`${BASE}/customer/${customerId}`), forCustomer(readLocal(), customerId)),
+  getAll: async (): Promise<Order[]> => (await ordersApi.list()).orders,
+  getByCustomer: async (customerId: string): Promise<Order[]> =>
+    (await ordersApi.listByCustomer(customerId)).orders,
+
+  /** Si el backend no responde, el pedido devuelto tiene `localOnly: true`. */
   create: async (data: NewOrderData): Promise<Order> => {
     try {
       return await request<Order>(BASE, {
@@ -43,8 +93,7 @@ export const ordersApi = {
         body: JSON.stringify({
           orderId: data.orderId,
           eventType: data.eventType,
-          // Midday avoids the stored instant shifting to the previous day in UTC-6.
-          deliveryDate: `${data.deliveryDate}T12:00:00`,
+          deliveryDate: toDeliveryInstant(data.deliveryDate),
           customer: { id: data.customerId },
           products: data.productIds.map((productId) => ({ productId })),
         }),
@@ -54,32 +103,31 @@ export const ordersApi = {
       const order: Order = {
         orderId: data.orderId,
         eventType: data.eventType,
-        deliveryDate: data.deliveryDate,
-        products: [],
+        deliveryDate: toDeliveryInstant(data.deliveryDate),
+        customer: data.customer ?? { id: data.customerId, name: '' },
+        products: data.products ?? [],
         status: 'PENDING',
+        localOnly: true,
       };
       writeLocal([order, ...readLocal()]);
       return order;
     }
   },
+
+  // Los pedidos locales no existen en el servidor, así que se editan y borran aquí.
   update: async (id: string, data: { eventType: string; deliveryDate: string; status?: OrderStatus }) => {
-    try {
-      return await request<Order>(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-    } catch (err) {
-      const local = readLocal();
-      if (!isOffline(err) || !local.some((o) => o.orderId === id)) throw err;
-      const updated = local.map((o) => (o.orderId === id ? { ...o, ...data } : o));
+    if (findLocal(id)) {
+      const updated = readLocal().map((order) => (order.orderId === id ? { ...order, ...data } : order));
       writeLocal(updated);
-      return updated.find((o) => o.orderId === id) as Order;
+      return updated.find((order) => order.orderId === id) as Order;
     }
+    return request<Order>(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   },
   remove: async (id: string): Promise<void> => {
-    try {
-      await request<void>(`${BASE}/${id}`, { method: 'DELETE' });
-    } catch (err) {
-      const local = readLocal();
-      if (!isOffline(err) || !local.some((o) => o.orderId === id)) throw err;
-      writeLocal(local.filter((o) => o.orderId !== id));
+    if (findLocal(id)) {
+      writeLocal(readLocal().filter((order) => order.orderId !== id));
+      return;
     }
+    await request<void>(`${BASE}/${id}`, { method: 'DELETE' });
   },
 };

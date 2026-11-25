@@ -36,11 +36,14 @@ const inputClass = 'w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 ou
 export function CustomerModal({ customer, customers, appointments, onClose, onSaved, onOrderCreated }: CustomerModalProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersError, setOrdersError] = useState('');
+  const [ordersOffline, setOrdersOffline] = useState(false);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
 
   const loadOrders = async () => {
     try {
-      setOrders(await ordersApi.getByCustomer(customer.id));
+      const result = await ordersApi.listByCustomer(customer.id);
+      setOrders(result.orders);
+      setOrdersOffline(result.offline);
       setOrdersError('');
     } catch {
       setOrdersError('No se pudieron cargar los pedidos.');
@@ -50,8 +53,12 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
   useEffect(() => {
     let active = true;
     ordersApi
-      .getByCustomer(customer.id)
-      .then((result) => active && setOrders(result))
+      .listByCustomer(customer.id)
+      .then((result) => {
+        if (!active) return;
+        setOrders(result.orders);
+        setOrdersOffline(result.offline);
+      })
       .catch(() => active && setOrdersError('No se pudieron cargar los pedidos.'));
     return () => {
       active = false;
@@ -211,6 +218,11 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
                 </button>
               </div>
               <div className="bg-gray-50 border border-gray-100 rounded-xl divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                {ordersOffline && (
+                  <p role="status" className="p-2.5 text-amber-700 font-semibold">
+                    Sin conexión: solo se muestran los pedidos guardados en este dispositivo.
+                  </p>
+                )}
                 {ordersError && <p className="p-2.5 text-red-500">{ordersError}</p>}
                 {!ordersError && orders.length === 0 && <p className="p-2.5 text-gray-400">Sin pedidos registrados.</p>}
                 {orders.map((order) => (
@@ -223,6 +235,11 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
+                      {order.localOnly && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 whitespace-nowrap">
+                          Sin sincronizar
+                        </span>
+                      )}
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 whitespace-nowrap">
                         {ORDER_STATUS_LABELS[order.status ?? 'PENDING'] ?? order.status}
                       </span>
@@ -230,6 +247,7 @@ export function CustomerModal({ customer, customers, appointments, onClose, onSa
                         type="button"
                         onClick={() => printQuote(order)}
                         title="Imprimir cotización"
+                        aria-label="Imprimir cotización"
                         className="p-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-bold cursor-pointer transition"
                       >
                         🧾
